@@ -40,5 +40,5 @@ public interface MeshGraph extends MetaGraph<FramedTransactionalGraph> {
    * @param subgraphId The id of the graph to make the active subgraph vertexes are written to.
    */
   void setWriteSubgraph(Object subgraphId);
-  void getWriteSubgraphId();
+  Object getWriteSubgraphId();
 }

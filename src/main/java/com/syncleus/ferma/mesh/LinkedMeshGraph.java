@@ -214,8 +214,8 @@ public class LinkedMeshGraph implements MeshGraph {
   }
 
   @Override
-  public void getWriteSubgraphId() {
-
+  public Object getWriteSubgraphId() {
+    return null;
   }
 
   @Override
