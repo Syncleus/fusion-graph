@@ -202,21 +202,23 @@ public class LinkedMeshGraph implements MeshGraph {
     //this is safe even if id is null
     final MeshId meshId = (MeshId) id;
     Object subgraphVertexId;
-    TransactionalGraph writeGraph;
+    Object writeGraphId;
     if(meshId == null) {
       if( this.writeSubgraphId == null )
         throw new IllegalStateException("No default wriatable graph is specified, either pass in a MeshId or set a writable graph.");
 
       subgraphVertexId = null;
-      writeGraph = this.cachedSubgraphs.get(this.writeSubgraphId);
+      writeGraphId = this.writeSubgraphId;
     }
     else {
       subgraphVertexId = meshId.getSubgraphVertexId();
-      writeGraph = this.cachedSubgraphs.get(meshId.getSubgraphId());
+      writeGraphId = meshId.getSubgraphId();
     }
 
+    final TransactionalGraph writeGraph = this.cachedSubgraphs.get(writeGraphId);
+
     this.pendingTransactions.add(writeGraph);
-    return writeGraph.addVertex(subgraphVertexId);
+    return new NestedVertex(writeGraph.addVertex(subgraphVertexId), writeGraphId);
   }
 
   @Override
@@ -225,9 +227,9 @@ public class LinkedMeshGraph implements MeshGraph {
       return null;
 
     final MeshId meshId = (MeshId) id;
-    final TransactionalGraph readGraph = this.cachedSubgraphs.get(((MeshId) id).getSubgraphId());
+    final TransactionalGraph readGraph = this.cachedSubgraphs.get(meshId.getSubgraphId());
     this.pendingTransactions.add(readGraph);
-    return readGraph.getVertex(meshId.getSubgraphVertexId());
+    return new NestedVertex(readGraph.getVertex(meshId.getSubgraphVertexId()), meshId.getSubgraphId());
   }
 
   @Override

@@ -1,8 +1,11 @@
 package com.syncleus.ferma.mesh;
 
 import com.syncleus.ferma.VertexFrame;
+import com.syncleus.ferma.annotations.Incidence;
 import com.tinkerpop.blueprints.TransactionalGraph;
 import com.tinkerpop.blueprints.util.wrappers.WrapperGraph;
+
+import java.util.Iterator;
 
 public interface SubgraphVertex extends VertexFrame, WrapperGraph<TransactionalGraph> {
   /**
@@ -13,4 +16,8 @@ public interface SubgraphVertex extends VertexFrame, WrapperGraph<TransactionalG
    */
   @Override
   TransactionalGraph getBaseGraph();
+
+  Iterator<MeshEdge> getOutMeshEdges(Object sourceId);
+
+  Iterator<MeshEdge> getInMeshEdges(Object targetId);
 }
