@@ -7,39 +7,28 @@ import java.util.*;
 
 public class LinkedMeshGraph implements MeshGraph {
   private final FramedTransactionalGraph metagraph;
-  private static final Integer DEFAULT_READ_SUBGRAPH_ACCESS_PER_CLEAN = null;
-  private final Integer readSubgraphAccessPerClean;
-  private int remainingReadSubgraphAccessCount;
   private final Set<TransactionalGraph> pendingTransactions = new HashSet<>();
 
   private Object writeSubgraphId = null;
   private final Set<Object> unreadableSubgraphIds = new HashSet<>();
-  private final TreeGraphCache<Object,TransactionalGraph> cachedSubgraphs = new TreeGraphCache<Object,TransactionalGraph>() {
-    @Override
-    protected TransactionalGraph constructGraph(Object key) {
-      SubgraphVertex subgraphVertex = getRawGraph().getFramedVertices("id", key, SubgraphVertex.class).iterator().next();
-      return subgraphVertex.getBaseGraph();
-    }
-  };
+  private final TreeGraphCache<Object,TransactionalGraph> cachedSubgraphs;
 
   public LinkedMeshGraph(final FramedTransactionalGraph metagraph) {
     if(metagraph == null)
       throw new IllegalArgumentException("metagraph can not be null");
 
     this.metagraph = metagraph;
-    this.readSubgraphAccessPerClean = DEFAULT_READ_SUBGRAPH_ACCESS_PER_CLEAN;
-    this.remainingReadSubgraphAccessCount = 0;
+    this.cachedSubgraphs = new MeshGraphCache();
   }
 
-  public LinkedMeshGraph(final FramedTransactionalGraph metagraph, final int readSubgraphAccessPerClean) {
+  public LinkedMeshGraph(final FramedTransactionalGraph metagraph, final int maxConnections) {
     if(metagraph == null)
       throw new IllegalArgumentException("metagraph can not be null");
-    if(readSubgraphAccessPerClean < 1 )
-      throw new IllegalArgumentException("readSubgraphAccessPerClean must be 1 or greater");
+    if(maxConnections < 2 )
+      throw new IllegalArgumentException("maxConnections must be 2 or greater");
 
     this.metagraph = metagraph;
-    this.readSubgraphAccessPerClean = readSubgraphAccessPerClean;
-    this.remainingReadSubgraphAccessCount = this.readSubgraphAccessPerClean;
+    this.cachedSubgraphs = new MeshGraphCache(maxConnections);
   }
 
   @Override
@@ -116,8 +105,6 @@ public class LinkedMeshGraph implements MeshGraph {
     if (!this.isSubgraphIdUsed(subgraphId))
       throw new IllegalArgumentException("subgraphId does not exist");
 
-    this.cleanCheckReadSubgraph();
-
     return this.unreadableSubgraphIds.add(subgraphId);
   }
 
@@ -126,8 +113,6 @@ public class LinkedMeshGraph implements MeshGraph {
     this.pendingTransactions.add(this.getRawGraph());
     if (!this.isSubgraphIdUsed(subgraphId))
       throw new IllegalArgumentException("subgraphId does not exist");
-
-    this.cleanCheckReadSubgraph();
 
     return (!this.unreadableSubgraphIds.contains(subgraphId));
   }
@@ -295,24 +280,14 @@ public class LinkedMeshGraph implements MeshGraph {
     this.pendingTransactions.clear();
   }
 
-  public void cleanReadableSubgraphs() {
+  @Override
+  public void resync() {
     //make sure there arent any stale subgraphIds, they do any harm but they do take up memory
     final Iterator<Object> idIterator = this.unreadableSubgraphIds.iterator();
     while(idIterator.hasNext()) {
       final Object id = idIterator.next();
       if( ! this.isSubgraphIdUsed(id) )
         idIterator.remove();
-    }
-  }
-
-  private void cleanCheckReadSubgraph() {
-    if( this.readSubgraphAccessPerClean != null ) {
-      this.remainingReadSubgraphAccessCount--;
-      if (this.remainingReadSubgraphAccessCount <= 0) {
-        this.cleanReadableSubgraphs();
-
-        this.remainingReadSubgraphAccessCount = this.readSubgraphAccessPerClean;
-      }
     }
   }
 
@@ -534,9 +509,17 @@ public class LinkedMeshGraph implements MeshGraph {
   };
 
   private class MeshGraphCache extends TreeGraphCache<Object,TransactionalGraph> {
+    public MeshGraphCache() {
+    }
+
+    public MeshGraphCache(Integer maxGraphs) {
+      super(maxGraphs);
+    }
+
     @Override
     protected TransactionalGraph constructGraph(Object key) {
-      return null;
+      SubgraphVertex subgraphVertex = getRawGraph().getFramedVertices("id", key, SubgraphVertex.class).iterator().next();
+      return subgraphVertex.getBaseGraph();
     }
   };
 }

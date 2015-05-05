@@ -42,4 +42,5 @@ public interface MeshGraph extends MetaGraph<FramedTransactionalGraph>, Transact
    */
   void setWriteSubgraph(Object subgraphId);
   Object getWriteSubgraphId();
+  void resync();
 }
