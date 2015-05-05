@@ -3,6 +3,7 @@ package com.syncleus.ferma.mesh;
 import com.syncleus.ferma.ClassInitializer;
 import com.syncleus.ferma.FramedTransactionalGraph;
 import com.tinkerpop.blueprints.MetaGraph;
+import com.tinkerpop.blueprints.TransactionalGraph;
 import com.tinkerpop.blueprints.Vertex;
 
 import java.util.Iterator;
@@ -11,7 +12,7 @@ import java.util.Iterator;
  * Combines several graphs, represented as subgraphs, into one combined graph. Also allows for edges to connected
  * vertexes across the subgraphs.
  */
-public interface MeshGraph extends MetaGraph<FramedTransactionalGraph> {
+public interface MeshGraph extends MetaGraph<FramedTransactionalGraph>, TransactionalGraph {
   /**
    * This retreives the underlieing metagraph describing the linkage between subgraphs. Each vertex of the metagraph
    * describes one of the subgraphs, and each edge is a link between the subgraphs. The returned graph is read-only.

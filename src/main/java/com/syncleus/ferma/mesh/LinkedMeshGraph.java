@@ -3,8 +3,6 @@ package com.syncleus.ferma.mesh;
 import com.syncleus.ferma.ClassInitializer;
 import com.syncleus.ferma.FramedTransactionalGraph;
 import com.tinkerpop.blueprints.*;
-
-import java.text.ParseException;
 import java.util.*;
 
 public class LinkedMeshGraph implements MeshGraph {
@@ -12,6 +10,7 @@ public class LinkedMeshGraph implements MeshGraph {
   private static final Integer DEFAULT_READ_SUBGRAPH_ACCESS_PER_CLEAN = null;
   private final Integer readSubgraphAccessPerClean;
   private int remainingReadSubgraphAccessCount;
+  private final Set<TransactionalGraph> pendingTransactions = new HashSet<>();
 
   private Object writeSubgraphId = null;
   private final Set<Object> unreadableSubgraphIds = new HashSet<>();
@@ -39,40 +38,29 @@ public class LinkedMeshGraph implements MeshGraph {
 
   @Override
   public <G extends SubgraphVertex> Object addSubgraph(Class<G> subgraphType) {
-    try {
-      final G subgraphVertex = this.getRawGraph().addFramedVertex(subgraphType);
-      return subgraphVertex.getId();
-    }
-    finally {
-      this.getRawGraph().commit();
-    }
+    this.pendingTransactions.add(this.getRawGraph());
+    final G subgraphVertex = this.getRawGraph().addFramedVertex(subgraphType);
+    return subgraphVertex.getId();
   }
 
   @Override
   public <G extends SubgraphVertex> Object addSubgraph(ClassInitializer<G> subgraphInitializer) {
-    try {
-      final G subgraphVertex = this.getRawGraph().addFramedVertex(subgraphInitializer);
-      return subgraphVertex.getId();
-    }
-    finally {
-      this.getRawGraph().commit();
-    }
+    this.pendingTransactions.add(this.getRawGraph());
+    final G subgraphVertex = this.getRawGraph().addFramedVertex(subgraphInitializer);
+    return subgraphVertex.getId();
   }
 
   @Override
   public void removeSubgraph(final Object subgraphName) {
-    try {
-      //subgraphName should be unique, so this should only get called once, the loop is incase transactions aren't locking
-      //as expected and as such the name was set multiple times.
-      this.getRawGraph().getVertex(subgraphName).remove();
-    }
-    finally {
-      this.getRawGraph().commit();
-    }
+    this.pendingTransactions.add(this.getRawGraph());
+    //subgraphName should be unique, so this should only get called once, the loop is incase transactions aren't locking
+    //as expected and as such the name was set multiple times.
+    this.getRawGraph().getVertex(subgraphName).remove();
   }
 
   @Override
   public Iterator<?> iterateSubgraphIds() {
+    this.pendingTransactions.add(this.getRawGraph());
     return new Iterator<Object>(){
       final Iterator<? extends SubgraphVertex> vertexIterator = getRawGraph().getFramedVertices(SubgraphVertex.class).iterator();
 
@@ -116,36 +104,31 @@ public class LinkedMeshGraph implements MeshGraph {
   public boolean removeReadSubgraph(Object subgraphId) {
     if( this.writeSubgraphId.equals(subgraphId) )
       throw new IllegalArgumentException("the write subgraph can not be removed from the list of readable subgraphs");
-    try {
-      if (!this.isSubgraphIdUsed(subgraphId))
-        throw new IllegalArgumentException("subgraphId does not exist");
 
-      this.cleanCheckReadSubgraph();
+    this.pendingTransactions.add(this.getRawGraph());
 
-      return this.unreadableSubgraphIds.add(subgraphId);
-    }
-    finally {
-      this.getRawGraph().commit();
-    }
+    if (!this.isSubgraphIdUsed(subgraphId))
+      throw new IllegalArgumentException("subgraphId does not exist");
+
+    this.cleanCheckReadSubgraph();
+
+    return this.unreadableSubgraphIds.add(subgraphId);
   }
 
   @Override
   public boolean isReadSubgraph(Object subgraphId) {
-    try {
-      if (!this.isSubgraphIdUsed(subgraphId))
-        throw new IllegalArgumentException("subgraphId does not exist");
+    this.pendingTransactions.add(this.getRawGraph());
+    if (!this.isSubgraphIdUsed(subgraphId))
+      throw new IllegalArgumentException("subgraphId does not exist");
 
-      this.cleanCheckReadSubgraph();
+    this.cleanCheckReadSubgraph();
 
-      return (!this.unreadableSubgraphIds.contains(subgraphId));
-    }
-    finally {
-      this.getRawGraph().commit();
-    }
+    return (!this.unreadableSubgraphIds.contains(subgraphId));
   }
 
   @Override
   public Iterator<Object> iterateReadSubgraphIds() {
+    this.pendingTransactions.add(this.getRawGraph());
     return new Iterator<Object>(){
       Iterator<? extends SubgraphVertex> vertexIterator = null;
       Object queuedSubgraphId = null;
@@ -201,16 +184,13 @@ public class LinkedMeshGraph implements MeshGraph {
 
   @Override
   public void setWriteSubgraph(Object subgraphId) {
-    try {
-      if (!this.isSubgraphIdUsed(subgraphId))
-        throw new IllegalArgumentException("subgraphId does not exist");
+    this.pendingTransactions.add(this.getRawGraph());
 
-      this.unreadableSubgraphIds.remove(subgraphId);
-      this.writeSubgraphId = subgraphId;
-    }
-    finally {
-      this.getRawGraph().commit();
-    }
+    if (!this.isSubgraphIdUsed(subgraphId))
+      throw new IllegalArgumentException("subgraphId does not exist");
+
+    this.unreadableSubgraphIds.remove(subgraphId);
+    this.writeSubgraphId = subgraphId;
   }
 
   @Override
@@ -280,6 +260,28 @@ public class LinkedMeshGraph implements MeshGraph {
   @Override
   public void shutdown() {
 
+  }
+
+  @Override
+  public void stopTransaction(Conclusion conclusion) {
+    for(TransactionalGraph pendingTransaction : this.pendingTransactions)
+      pendingTransaction.stopTransaction(conclusion);
+    this.pendingTransactions.clear();
+  }
+
+  @Override
+  public void commit() {
+    //TODO : What happens when some commits succeeded and then one of the last ones throws an exception?
+    for(TransactionalGraph pendingTransaction : this.pendingTransactions)
+      pendingTransaction.commit();
+    this.pendingTransactions.clear();
+  }
+
+  @Override
+  public void rollback() {
+    for(TransactionalGraph pendingTransaction : this.pendingTransactions)
+      pendingTransaction.rollback();
+    this.pendingTransactions.clear();
   }
 
   public void cleanReadableSubgraphs() {
