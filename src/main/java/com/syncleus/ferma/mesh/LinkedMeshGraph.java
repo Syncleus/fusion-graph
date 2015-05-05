@@ -14,7 +14,13 @@ public class LinkedMeshGraph implements MeshGraph {
 
   private Object writeSubgraphId = null;
   private final Set<Object> unreadableSubgraphIds = new HashSet<>();
-  private final Map<Object, TransactionalGraph> cachedSubgraphs = new HashMap<>();
+  private final TreeGraphCache<Object,TransactionalGraph> cachedSubgraphs = new TreeGraphCache<Object,TransactionalGraph>() {
+    @Override
+    protected TransactionalGraph constructGraph(Object key) {
+      SubgraphVertex subgraphVertex = getRawGraph().getFramedVertices("id", key, SubgraphVertex.class).iterator().next();
+      return subgraphVertex.getBaseGraph();
+    }
+  };
 
   public LinkedMeshGraph(final FramedTransactionalGraph metagraph) {
     if(metagraph == null)
@@ -195,7 +201,12 @@ public class LinkedMeshGraph implements MeshGraph {
 
   @Override
   public Object getWriteSubgraphId() {
-    return null;
+    this.pendingTransactions.add(this.getRawGraph());
+
+    if (!this.isSubgraphIdUsed(this.writeSubgraphId))
+      this.writeSubgraphId = null;
+
+    return this.writeSubgraphId;
   }
 
   @Override
@@ -413,4 +424,119 @@ public class LinkedMeshGraph implements MeshGraph {
 
     return features;
   }
+
+  private static class NestedVertex implements Vertex {
+    private final Object parentId;
+    private final Vertex delegate;
+
+    public NestedVertex(final Vertex delegate, final Object parentId) {
+      this.delegate = delegate;
+      this.parentId = parentId;
+    }
+
+    @Override
+    public Iterable<Edge> getEdges(Direction direction, String... labels) {
+      return delegate.getEdges(direction, labels);
+    }
+
+    @Override
+    public Iterable<Vertex> getVertices(Direction direction, String... labels) {
+      return delegate.getVertices(direction, labels);
+    }
+
+    @Override
+    public VertexQuery query() {
+      return delegate.query();
+    }
+
+    @Override
+    public Edge addEdge(String label, Vertex inVertex) {
+      return delegate.addEdge(label, inVertex);
+    }
+
+    @Override
+    public <T> T getProperty(String key) {
+      return delegate.getProperty(key);
+    }
+
+    @Override
+    public Set<String> getPropertyKeys() {
+      return delegate.getPropertyKeys();
+    }
+
+    @Override
+    public void setProperty(String key, Object value) {
+      delegate.setProperty(key, value);
+    }
+
+    @Override
+    public <T> T removeProperty(String key) {
+      return delegate.removeProperty(key);
+    }
+
+    @Override
+    public void remove() {
+      delegate.remove();
+    }
+
+    @Override
+    public MeshId getId() {
+      // TODO: Do we want to cache this?
+      return new NestedId(parentId, delegate.getId());
+    }
+
+    private static class NestedId implements MeshId {
+      private final Object subgraphId;
+      private final Object subgraphVertexId;
+
+      public NestedId(final Object subgraphId, final Object subgraphVertexId) {
+        this.subgraphId = subgraphId;
+        this.subgraphVertexId = subgraphVertexId;
+      }
+
+      @Override
+      public Object getSubgraphId() {
+        return this.subgraphId;
+      }
+
+      @Override
+      public Object getSubgraphVertexId() {
+        return this.subgraphVertexId;
+      }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(subgraphId, subgraphVertexId);
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        if( this == o )
+          return true;
+
+        if(!(o instanceof NestedId))
+          return false;
+
+        final NestedId otherId = (NestedId) o;
+        if(! subgraphId.equals(otherId.subgraphId))
+          return false;
+        else if(! subgraphVertexId.equals(otherId.subgraphVertexId))
+          return false;
+        else
+          return true;
+      }
+
+      @Override
+      public String toString() {
+        return new StringBuilder(subgraphId.toString()).append(".").append(subgraphVertexId).toString();
+      }
+    };
+  };
+
+  private class MeshGraphCache extends TreeGraphCache<Object,TransactionalGraph> {
+    @Override
+    protected TransactionalGraph constructGraph(Object key) {
+      return null;
+    }
+  };
 }
