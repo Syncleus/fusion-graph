@@ -17,7 +17,7 @@ public interface SubgraphVertex extends VertexFrame, WrapperGraph<TransactionalG
   @Override
   TransactionalGraph getBaseGraph();
 
-  Iterator<MeshEdge> getOutMeshEdges(Object sourceId);
+  Iterator<MeshEdge> getOutMeshEdges(Object sourceId, String... labels);
 
-  Iterator<MeshEdge> getInMeshEdges(Object targetId);
+  Iterator<MeshEdge> getInMeshEdges(Object targetId, String... labels);
 }

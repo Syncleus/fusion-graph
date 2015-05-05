@@ -11,6 +11,9 @@ public interface MeshEdge {
   @Property("outId")
   Object getOutId();
 
+  @Property("sublabel")
+  String getSublabel();
+
   @InVertex
   SubgraphVertex getInSubgraph();
 
