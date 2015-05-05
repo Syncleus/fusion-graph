@@ -27,7 +27,6 @@ public interface MeshGraph extends MetaGraph<FramedTransactionalGraph>, Transact
   void removeSubgraph(Object subgraphId);
   Iterator<?> iterateSubgraphIds();
   void moveVertex(Vertex vertex, Object subgraphId);
-  void reloadSubgraphs();
   boolean addReadSubgraph(Object subgraphId);
   boolean removeReadSubgraph(Object subgraphId);
   boolean isReadSubgraph(Object subgraphId);
@@ -43,4 +42,6 @@ public interface MeshGraph extends MetaGraph<FramedTransactionalGraph>, Transact
   void setWriteSubgraph(Object subgraphId);
   Object getWriteSubgraphId();
   void resync();
+  void clearConnectionCache();
+  void cleanStaleSubgraphIds();
 }

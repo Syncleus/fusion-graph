@@ -87,10 +87,6 @@ public class LinkedMeshGraph implements MeshGraph {
   }
 
   @Override
-  public void reloadSubgraphs() {
-  }
-
-  @Override
   public boolean addReadSubgraph(Object subgraphId) {
     return this.unreadableSubgraphIds.remove(subgraphId);
   }
@@ -308,6 +304,15 @@ public class LinkedMeshGraph implements MeshGraph {
 
   @Override
   public void resync() {
+  }
+
+  @Override
+  public void clearConnectionCache() {
+    this.cachedSubgraphs.clear();
+  }
+
+  @Override
+  public void cleanStaleSubgraphIds() {
     //make sure there arent any stale subgraphIds, they do any harm but they do take up memory
     final Iterator<Object> idIterator = this.unreadableSubgraphIds.iterator();
     while(idIterator.hasNext()) {
