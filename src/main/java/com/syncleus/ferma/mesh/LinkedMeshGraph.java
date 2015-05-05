@@ -200,12 +200,38 @@ public class LinkedMeshGraph implements MeshGraph {
 
   @Override
   public Vertex addVertex(Object id) {
-    return null;
+    if( (id != null) && !(id instanceof MeshId) )
+      throw new IllegalArgumentException("id must either be null or a MeshId");
+
+    //this is safe even if id is null
+    final MeshId meshId = (MeshId) id;
+    Object subgraphVertexId;
+    TransactionalGraph writeGraph;
+    if(meshId == null) {
+      if( this.writeSubgraphId == null )
+        throw new IllegalStateException("No default wriatable graph is specified, either pass in a MeshId or set a writable graph.");
+
+      subgraphVertexId = null;
+      writeGraph = this.cachedSubgraphs.get(this.writeSubgraphId);
+    }
+    else {
+      subgraphVertexId = meshId.getSubgraphVertexId();
+      writeGraph = this.cachedSubgraphs.get(meshId.getSubgraphId());
+    }
+
+    this.pendingTransactions.add(writeGraph);
+    return writeGraph.addVertex(subgraphVertexId);
   }
 
   @Override
   public Vertex getVertex(Object id) {
-    return null;
+    if( !(id instanceof MeshId) )
+      return null;
+
+    final MeshId meshId = (MeshId) id;
+    final TransactionalGraph readGraph = this.cachedSubgraphs.get(((MeshId) id).getSubgraphId());
+    this.pendingTransactions.add(readGraph);
+    return readGraph.getVertex(meshId.getSubgraphVertexId());
   }
 
   @Override
@@ -518,6 +544,7 @@ public class LinkedMeshGraph implements MeshGraph {
 
     @Override
     protected TransactionalGraph constructGraph(Object key) {
+      pendingTransactions.add(getRawGraph());
       SubgraphVertex subgraphVertex = getRawGraph().getFramedVertices("id", key, SubgraphVertex.class).iterator().next();
       return subgraphVertex.getBaseGraph();
     }
