@@ -29,7 +29,7 @@
     <name>Ferma-mesh</name>
     <inceptionYear>2015</inceptionYear>
     <description>
-	Ferma-mesh is an extension to Ferma which enables linking to bridge independent graphs into one single graph.
+	Ferma-mesh is an extension to Ferma which enables linking between disseperate graphs in order to bridge into a single graph interface.
     </description>
 
     <licenses>
