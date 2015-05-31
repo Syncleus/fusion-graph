@@ -234,7 +234,23 @@ public class LinkedMeshGraph implements MeshGraph {
 
   @Override
   public void removeVertex(Vertex vertex) {
+    if( !(vertex instanceof NestedVertex) )
+      throw new IllegalArgumentException("vertex does not belong to this graph");
 
+    //obtain the subgraph which has the vertex to be removed
+    final NestedVertex nestedVertex = (NestedVertex) vertex;
+    final Object subgraphId = nestedVertex.getId().getSubgraphId();
+    final TransactionalGraph targetGraph = this.cachedSubgraphs.get(subgraphId);
+
+    //remove the vertex from the subgraph
+    this.pendingTransactions.add(targetGraph);
+    targetGraph.removeVertex(nestedVertex.delegate);
+
+    //remove any mesh edges which link to this vertex from outside the subgraph
+    final Object subgraphVertexId = nestedVertex.getId().getSubgraphVertexId();
+    this.pendingTransactions.add(this.metagraph);
+    this.metagraph.v().has("id", subgraphId).inE("link").has("outId", subgraphVertexId).removeAll();
+    this.metagraph.v().has("id", subgraphId).outE("link").has("inId", subgraphVertexId).removeAll();
   }
 
   @Override
@@ -440,6 +456,10 @@ public class LinkedMeshGraph implements MeshGraph {
     public NestedVertex(final Vertex delegate, final Object parentId) {
       this.delegate = delegate;
       this.parentId = parentId;
+    }
+
+    public Vertex getDelegate() {
+      return delegate;
     }
 
     @Override
