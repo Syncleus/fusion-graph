@@ -5,18 +5,18 @@ import com.syncleus.ferma.annotations.OutVertex;
 import com.syncleus.ferma.annotations.Property;
 
 public interface MeshEdge {
-  @Property("inId")
-  Object getInId();
+    @Property("inId")
+    Object getInId();
 
-  @Property("outId")
-  Object getOutId();
+    @Property("outId")
+    Object getOutId();
 
-  @Property("sublabel")
-  String getSublabel();
+    @Property("sublabel")
+    String getSublabel();
 
-  @InVertex
-  SubgraphVertex getInSubgraph();
+    @InVertex
+    SubgraphVertex getInSubgraph();
 
-  @OutVertex
-  SubgraphVertex getOutSubgraph();
+    @OutVertex
+    SubgraphVertex getOutSubgraph();
 }
