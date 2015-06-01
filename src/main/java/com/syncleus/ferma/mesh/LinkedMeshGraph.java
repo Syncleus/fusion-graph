@@ -257,9 +257,7 @@ public class LinkedMeshGraph implements MeshGraph {
         return new Iterable<Vertex>() {
             @Override
             public Iterator<Vertex> iterator() {
-                //construct a map of all the subgraph's vertexes in iterable form along with the subgraph's id.
                 //we collect all the iterators at the begining to ensure they remain consistent.
-                //The key is the id of the subgraph, the value is an iterable associated with that subgraph
                 final Set<NestedVertexIterator> subvertexIterators = new HashSet<>();
                 for (final Vertex subgraph : metagraph.getVertices()) {
                     final Object subgraphId = subgraph.getId();
@@ -277,9 +275,7 @@ public class LinkedMeshGraph implements MeshGraph {
         return new Iterable<Vertex>() {
             @Override
             public Iterator<Vertex> iterator() {
-                //construct a map of all the subgraph's vertexes in iterable form along with the subgraph's id.
                 //we collect all the iterators at the begining to ensure they remain consistent.
-                //The key is the id of the subgraph, the value is an iterable associated with that subgraph
                 final Set<NestedVertexIterator> subvertexIterators = new HashSet<>();
                 for (final Vertex subgraph : metagraph.getVertices()) {
                     final Object subgraphId = subgraph.getId();
