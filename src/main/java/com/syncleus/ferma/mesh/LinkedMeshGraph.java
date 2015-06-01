@@ -632,6 +632,7 @@ public class LinkedMeshGraph implements MeshGraph {
 
         @Override
         public Iterable<Edge> getEdges(Direction direction, String... labels) {
+            // TODO this needs to be fixed to encapsulate edges
             return this.getDelegate().getEdges(direction, labels);
         }
 
@@ -642,6 +643,7 @@ public class LinkedMeshGraph implements MeshGraph {
 
         @Override
         public VertexQuery query() {
+            // TODO : Is this correct? Will it return proper encapsulated elements?
             return this.getDelegate().query();
         }
 
