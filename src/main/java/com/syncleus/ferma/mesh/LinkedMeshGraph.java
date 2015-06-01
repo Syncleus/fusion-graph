@@ -238,18 +238,8 @@ public class LinkedMeshGraph implements MeshGraph {
 
         //obtain the subgraph which has the vertex to be removed
         final NestedVertex nestedVertex = (NestedVertex) vertex;
-        final Object subgraphId = nestedVertex.getId().getSubgraphId();
-        final TransactionalGraph targetGraph = this.cachedSubgraphs.get(subgraphId);
-
-        //remove the vertex from the subgraph
-        this.pendingTransactions.add(targetGraph);
-        targetGraph.removeVertex(nestedVertex.getDelegate());
-
-        //remove any mesh edges which link to this vertex from outside the subgraph
-        final Object subgraphVertexId = nestedVertex.getId().getSubgraphVertexId();
-        this.pendingTransactions.add(this.metagraph);
-        this.metagraph.v().has("id", subgraphId).inE("link").has("outId", subgraphVertexId).removeAll();
-        this.metagraph.v().has("id", subgraphId).outE("link").has("inId", subgraphVertexId).removeAll();
+        //this is where the heavy lifting takes place
+        nestedVertex.remove();
     }
 
     @Override
@@ -522,7 +512,7 @@ public class LinkedMeshGraph implements MeshGraph {
      *
      * @param <E> The type of element, this is usually either a Vertex or an Edge
      */
-    private static class NestedElement<E extends Element> implements Element {
+    private static abstract class NestedElement<E extends Element> implements Element {
         private final Object parentId;
         private final E delegate;
 
@@ -557,11 +547,6 @@ public class LinkedMeshGraph implements MeshGraph {
         @Override
         public <T> T removeProperty(String key) {
             return delegate.removeProperty(key);
-        }
-
-        @Override
-        public void remove() {
-            delegate.remove();
         }
 
         @Override
@@ -621,9 +606,24 @@ public class LinkedMeshGraph implements MeshGraph {
      * A type of Vertex which encapsulates the vertex from a subgraph. This is the type of vertex returned to the user
      * when traversing this graph.
      */
-    private static class NestedVertex extends NestedElement<Vertex> implements Vertex {
+    private class NestedVertex extends NestedElement<Vertex> implements Vertex {
         public NestedVertex(final Vertex delegate, final Object parentId) {
             super(parentId, delegate);
+        }
+
+        @Override
+        public void remove() {
+            final TransactionalGraph targetGraph = cachedSubgraphs.get(this.getParentId());
+
+            //remove the vertex from the subgraph
+            pendingTransactions.add(targetGraph);
+            this.getDelegate().remove();
+
+            //remove any mesh edges which link to this vertex from outside the subgraph
+            final Object subgraphVertexId = this.getId().getSubgraphVertexId();
+            pendingTransactions.add(metagraph);
+            metagraph.v().has("id", this.getParentId()).inE("link").has("outId", subgraphVertexId).removeAll();
+            metagraph.v().has("id", this.getParentId()).outE("link").has("inId", subgraphVertexId).removeAll();
         }
 
         @Override
@@ -652,7 +652,7 @@ public class LinkedMeshGraph implements MeshGraph {
     /**
      * An iterable object which encapsulates the iterable from a subgraph insuring it returns the proper element type
      */
-    private static class NestedVertexIterable implements Iterable<Vertex> {
+    private class NestedVertexIterable implements Iterable<Vertex> {
         final Object parentId;
         final Iterable<Vertex> delegate;
 
@@ -670,7 +670,7 @@ public class LinkedMeshGraph implements MeshGraph {
     /**
      * An iterator object which encapsulates the iterator from a subgraph insuring it returns the proper element type
      */
-    private static class NestedVertexIterator implements Iterator<Vertex> {
+    private class NestedVertexIterator implements Iterator<Vertex> {
         final Object parentId;
         final Iterator<Vertex> delegate;
 
