@@ -255,7 +255,58 @@ public class LinkedMeshGraph implements MeshGraph {
 
   @Override
   public Iterable<Vertex> getVertices() {
-    return null;
+    return new Iterable<Vertex>() {
+      @Override
+      public Iterator<Vertex> iterator() {
+        //construct a map of all the subgraph's vertexes in iterable form along with the subgraph's id.
+        //we collect all the iterators at the begining to ensure they remain consistent.
+        //The key is the id of the subgraph, the value is an iterable associated with that subgraph
+        final Map<Object, Iterator<Vertex>> subvertexIterators = new HashMap<>();
+        for(final Vertex subgraph : metagraph.getVertices()) {
+          final Object subgraphId = subgraph.getId();
+          final Iterator<Vertex> subvertexIterable = cachedSubgraphs.get(subgraphId).getVertices().iterator();
+          subvertexIterators.put(subgraphId, subvertexIterable);
+        }
+
+        return new Iterator<Vertex>() {
+          private Iterator<Vertex> currentIterator = null;
+          private Object currentSubgraphId = null;
+
+          @Override
+          public boolean hasNext() {
+            // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
+            while (true) {
+              if( currentIterator != null ) {
+                if( currentIterator.hasNext() )
+                  return true;
+                else if(subvertexIterators.isEmpty())
+                  return false;
+              }
+
+              final Map.Entry<Object, Iterator<Vertex>> entry = subvertexIterators.entrySet().iterator().next();
+              currentIterator = entry.getValue();
+              currentSubgraphId = entry.getKey();
+              subvertexIterators.remove(entry.getKey());
+            }
+          }
+
+          @Override
+          public Vertex next() {
+            // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
+            while (true) {
+              if( (currentIterator != null) && (currentIterator.hasNext() || subvertexIterators.isEmpty()) ) {
+                return new NestedVertex(currentIterator.next(), currentSubgraphId);
+              }
+
+              final Map.Entry<Object, Iterator<Vertex>> entry = subvertexIterators.entrySet().iterator().next();
+              currentIterator = entry.getValue();
+              currentSubgraphId = entry.getKey();
+              subvertexIterators.remove(entry.getKey());
+            }
+          }
+        };
+      }
+    };
   }
 
   @Override
