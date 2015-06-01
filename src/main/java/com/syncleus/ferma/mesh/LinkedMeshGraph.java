@@ -244,7 +244,7 @@ public class LinkedMeshGraph implements MeshGraph {
 
     //remove the vertex from the subgraph
     this.pendingTransactions.add(targetGraph);
-    targetGraph.removeVertex(nestedVertex.delegate);
+    targetGraph.removeVertex(nestedVertex.getDelegate());
 
     //remove any mesh edges which link to this vertex from outside the subgraph
     final Object subgraphVertexId = nestedVertex.getId().getSubgraphVertexId();
@@ -374,48 +374,6 @@ public class LinkedMeshGraph implements MeshGraph {
     return (this.getRawGraph().getVertex(id) != null);
   }
 
-  private static class SubgraphVertexIterator implements Iterator<Vertex> {
-    final Map<Object, Iterator<Vertex>> subvertexIterators;
-    private Iterator<Vertex> currentIterator = null;
-    private Object currentSubgraphId = null;
-
-    public SubgraphVertexIterator(Map<Object, Iterator<Vertex>> subvertexIterators) {
-      this.subvertexIterators = subvertexIterators;
-    }
-
-    @Override
-    public boolean hasNext() {
-      // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
-      while (true) {
-        if( currentIterator != null ) {
-          if( currentIterator.hasNext() )
-            return true;
-          else if(subvertexIterators.isEmpty())
-            return false;
-        }
-
-        final Map.Entry<Object, Iterator<Vertex>> entry = subvertexIterators.entrySet().iterator().next();
-        currentIterator = entry.getValue();
-        currentSubgraphId = entry.getKey();
-        subvertexIterators.remove(entry.getKey());
-      }
-    }
-
-    @Override
-    public Vertex next() {
-      // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
-      while (true) {
-        if( (currentIterator != null) && (currentIterator.hasNext() || subvertexIterators.isEmpty()) ) {
-          return new NestedVertex(currentIterator.next(), currentSubgraphId);
-        }
-
-        final Map.Entry<Object, Iterator<Vertex>> entry = subvertexIterators.entrySet().iterator().next();
-        currentIterator = entry.getValue();
-        currentSubgraphId = entry.getKey();
-        subvertexIterators.remove(entry.getKey());
-      }
-    }
-  };
 
   private Features featureMerger() {
     final Features features = new Features();
@@ -522,37 +480,60 @@ public class LinkedMeshGraph implements MeshGraph {
     return features;
   }
 
-  private static class NestedVertex implements Vertex {
+  private static class SubgraphVertexIterator implements Iterator<Vertex> {
+    final Map<Object, Iterator<Vertex>> subvertexIterators;
+    private Iterator<Vertex> currentIterator = null;
+    private Object currentSubgraphId = null;
+
+    public SubgraphVertexIterator(Map<Object, Iterator<Vertex>> subvertexIterators) {
+      this.subvertexIterators = subvertexIterators;
+    }
+
+    @Override
+    public boolean hasNext() {
+      // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
+      while (true) {
+        if( currentIterator != null ) {
+          if( currentIterator.hasNext() )
+            return true;
+          else if(subvertexIterators.isEmpty())
+            return false;
+        }
+
+        final Map.Entry<Object, Iterator<Vertex>> entry = subvertexIterators.entrySet().iterator().next();
+        currentIterator = entry.getValue();
+        currentSubgraphId = entry.getKey();
+        subvertexIterators.remove(entry.getKey());
+      }
+    }
+
+    @Override
+    public Vertex next() {
+      // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
+      while (true) {
+        if( (currentIterator != null) && (currentIterator.hasNext() || subvertexIterators.isEmpty()) ) {
+          return new NestedVertex(currentIterator.next(), currentSubgraphId);
+        }
+
+        final Map.Entry<Object, Iterator<Vertex>> entry = subvertexIterators.entrySet().iterator().next();
+        currentIterator = entry.getValue();
+        currentSubgraphId = entry.getKey();
+        subvertexIterators.remove(entry.getKey());
+      }
+    }
+  };
+
+  private static class NestedElement<E extends Element> implements Element {
     private final Object parentId;
-    private final Vertex delegate;
+    private final E delegate;
 
-    public NestedVertex(final Vertex delegate, final Object parentId) {
-      this.delegate = delegate;
+    public NestedElement(Object parentId, E delegate) {
       this.parentId = parentId;
+      this.delegate = delegate;
     }
 
-    public Vertex getDelegate() {
+    public E getDelegate() {
       return delegate;
-    }
-
-    @Override
-    public Iterable<Edge> getEdges(Direction direction, String... labels) {
-      return delegate.getEdges(direction, labels);
-    }
-
-    @Override
-    public Iterable<Vertex> getVertices(Direction direction, String... labels) {
-      return delegate.getVertices(direction, labels);
-    }
-
-    @Override
-    public VertexQuery query() {
-      return delegate.query();
-    }
-
-    @Override
-    public Edge addEdge(String label, Vertex inVertex) {
-      return delegate.addEdge(label, inVertex);
     }
 
     @Override
@@ -582,11 +563,10 @@ public class LinkedMeshGraph implements MeshGraph {
 
     @Override
     public MeshId getId() {
-      // TODO: Do we want to cache this?
       return new NestedId(parentId, delegate.getId());
     }
 
-    private static class NestedId implements MeshId {
+    protected static class NestedId implements MeshId {
       private final Object subgraphId;
       private final Object subgraphVertexId;
 
@@ -632,6 +612,32 @@ public class LinkedMeshGraph implements MeshGraph {
         return new StringBuilder(subgraphId.toString()).append(".").append(subgraphVertexId).toString();
       }
     };
+  }
+
+  private static class NestedVertex extends NestedElement<Vertex> implements Vertex {
+    public NestedVertex(final Vertex delegate, final Object parentId) {
+      super(parentId, delegate);
+    }
+
+    @Override
+    public Iterable<Edge> getEdges(Direction direction, String... labels) {
+      return this.getDelegate().getEdges(direction, labels);
+    }
+
+    @Override
+    public Iterable<Vertex> getVertices(Direction direction, String... labels) {
+      return this.getDelegate().getVertices(direction, labels);
+    }
+
+    @Override
+    public VertexQuery query() {
+      return this.getDelegate().query();
+    }
+
+    @Override
+    public Edge addEdge(String label, Vertex inVertex) {
+      return this.getDelegate().addEdge(label, inVertex);
+    }
   };
 
   private class MeshGraphCache extends TreeGraphCache<Object,TransactionalGraph> {
