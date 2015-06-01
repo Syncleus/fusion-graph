@@ -653,6 +653,10 @@ public class LinkedMeshGraph implements MeshGraph {
         }
     }
 
+    /**
+     * A cache for all the internal subgraphs. It limits the number of caches in the graph to a fixed amount and will
+     * construct a new graph if the current graph is not present in the cache.
+     */
     private class MeshGraphCache extends TreeGraphCache<Object, TransactionalGraph> {
         public MeshGraphCache() {
         }
