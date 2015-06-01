@@ -260,11 +260,11 @@ public class LinkedMeshGraph implements MeshGraph {
                 //construct a map of all the subgraph's vertexes in iterable form along with the subgraph's id.
                 //we collect all the iterators at the begining to ensure they remain consistent.
                 //The key is the id of the subgraph, the value is an iterable associated with that subgraph
-                final Map<Object, Iterator<Vertex>> subvertexIterators = new HashMap<>();
+                final Set<NestedVertexIterator> subvertexIterators = new HashSet<>();
                 for (final Vertex subgraph : metagraph.getVertices()) {
                     final Object subgraphId = subgraph.getId();
                     final Iterator<Vertex> subvertexIterable = cachedSubgraphs.get(subgraphId).getVertices().iterator();
-                    subvertexIterators.put(subgraphId, subvertexIterable);
+                    subvertexIterators.add(new NestedVertexIterator(subvertexIterable, subgraphId));
                 }
 
                 return new SubgraphVertexIterator(subvertexIterators);
@@ -280,11 +280,11 @@ public class LinkedMeshGraph implements MeshGraph {
                 //construct a map of all the subgraph's vertexes in iterable form along with the subgraph's id.
                 //we collect all the iterators at the begining to ensure they remain consistent.
                 //The key is the id of the subgraph, the value is an iterable associated with that subgraph
-                final Map<Object, Iterator<Vertex>> subvertexIterators = new HashMap<>();
+                final Set<NestedVertexIterator> subvertexIterators = new HashSet<>();
                 for (final Vertex subgraph : metagraph.getVertices()) {
                     final Object subgraphId = subgraph.getId();
                     final Iterator<Vertex> subvertexIterable = cachedSubgraphs.get(subgraphId).getVertices(key, value).iterator();
-                    subvertexIterators.put(subgraphId, subvertexIterable);
+                    subvertexIterators.add(new NestedVertexIterator(subvertexIterable, subgraphId));
                 }
 
                 return new SubgraphVertexIterator(subvertexIterators);
@@ -484,11 +484,10 @@ public class LinkedMeshGraph implements MeshGraph {
      * to the enduser to be a single iterator.
      */
     private static class SubgraphVertexIterator implements Iterator<Vertex> {
-        final Map<Object, Iterator<Vertex>> subvertexIterators;
-        private Iterator<Vertex> currentIterator = null;
-        private Object currentSubgraphId = null;
+        private NestedVertexIterator currentIterator = null;
+        final Set<NestedVertexIterator> subvertexIterators;
 
-        public SubgraphVertexIterator(Map<Object, Iterator<Vertex>> subvertexIterators) {
+        public SubgraphVertexIterator(Set<NestedVertexIterator> subvertexIterators) {
             this.subvertexIterators = subvertexIterators;
         }
 
@@ -503,10 +502,8 @@ public class LinkedMeshGraph implements MeshGraph {
                         return false;
                 }
 
-                final Map.Entry<Object, Iterator<Vertex>> entry = subvertexIterators.entrySet().iterator().next();
-                currentIterator = entry.getValue();
-                currentSubgraphId = entry.getKey();
-                subvertexIterators.remove(entry.getKey());
+                currentIterator = subvertexIterators.iterator().next();
+                subvertexIterators.remove(currentIterator);
             }
         }
 
@@ -514,14 +511,11 @@ public class LinkedMeshGraph implements MeshGraph {
         public Vertex next() {
             // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
             while (true) {
-                if ((currentIterator != null) && (currentIterator.hasNext() || subvertexIterators.isEmpty())) {
-                    return new NestedVertex(currentIterator.next(), currentSubgraphId);
-                }
+                if ((currentIterator != null) && (currentIterator.hasNext() || subvertexIterators.isEmpty()))
+                    return currentIterator.next();
 
-                final Map.Entry<Object, Iterator<Vertex>> entry = subvertexIterators.entrySet().iterator().next();
-                currentIterator = entry.getValue();
-                currentSubgraphId = entry.getKey();
-                subvertexIterators.remove(entry.getKey());
+                currentIterator = subvertexIterators.iterator().next();
+                subvertexIterators.remove(currentIterator);
             }
         }
     }
@@ -543,6 +537,10 @@ public class LinkedMeshGraph implements MeshGraph {
 
         public E getDelegate() {
             return delegate;
+        }
+
+        public Object getParentId() {
+            return this.parentId;
         }
 
         @Override
@@ -639,7 +637,7 @@ public class LinkedMeshGraph implements MeshGraph {
 
         @Override
         public Iterable<Vertex> getVertices(Direction direction, String... labels) {
-            return this.getDelegate().getVertices(direction, labels);
+            return new NestedVertexIterable(this.getDelegate().getVertices(direction, labels), this.getParentId());
         }
 
         @Override
@@ -650,6 +648,47 @@ public class LinkedMeshGraph implements MeshGraph {
         @Override
         public Edge addEdge(String label, Vertex inVertex) {
             return this.getDelegate().addEdge(label, inVertex);
+        }
+    }
+
+    /**
+     * An iterable object which encapsulates the iterable from a subgraph insuring it returns the proper element type
+     */
+    private static class NestedVertexIterable implements Iterable<Vertex> {
+        final Object parentId;
+        final Iterable<Vertex> delegate;
+
+        public NestedVertexIterable(Iterable<Vertex> delegate, Object parentId) {
+            this.parentId = parentId;
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Iterator<Vertex> iterator() {
+            return new NestedVertexIterator(this.delegate.iterator(), this.parentId);
+        }
+    }
+
+    /**
+     * An iterator object which encapsulates the iterator from a subgraph insuring it returns the proper element type
+     */
+    private static class NestedVertexIterator implements Iterator<Vertex> {
+        final Object parentId;
+        final Iterator<Vertex> delegate;
+
+        public NestedVertexIterator(Iterator<Vertex> delegate, Object parentId) {
+            this.parentId = parentId;
+            this.delegate = delegate;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return this.delegate.hasNext();
+        }
+
+        @Override
+        public Vertex next() {
+            return new NestedVertex(this.delegate.next(), this.parentId);
         }
     }
 
