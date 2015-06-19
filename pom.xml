@@ -47,6 +47,61 @@
         </license>
     </licenses>
 
+    <organization>
+        <name>Syncleus</name>
+        <url>http://www.syncleus.com</url>
+    </organization>
+
+    <scm>
+        <connection>scm:git:http://gerrit.syncleus.com/fusion-graph</connection>
+        <developerConnection>scm:git:ssh://gerrit.syncleus.com:29418/fusion-graph</developerConnection>
+        <url>http://gerrit.syncleus.com/fusion-graph</url>
+    </scm>
+
+    <ciManagement>
+        <system>jenkins</system>
+        <url>http://builds.syncleus.com/</url>
+    </ciManagement>
+
+    <issueManagement>
+        <system>JIRA</system>
+        <url>http://bugs.syncleus.com/</url>
+    </issueManagement>
+
+    <developers>
+        <developer>
+            <id>JeffreyPhillipsFreeman</id>
+            <name>Jeffrey Phillips Freeman</name>
+            <email>Jeffrey.Freeman@Syncleus.com</email>
+            <url>http://JeffreyFreeman.me</url>
+            <organization>Syncleus</organization>
+            <organizationUrl>http://www.syncleus.com</organizationUrl>
+            <roles>
+                <role>Chief Technology Officer</role>
+                <role>Project Owner</role>
+                <role>Developer</role>
+            </roles>
+            <timezone>-5</timezone>
+        </developer>
+    </developers>
+
+    <mailingLists>
+        <mailingList>
+            <name>Syncleus Announcements</name>
+            <subscribe>syncleus-announce-list+subscribe@syncleus.com</subscribe>
+            <unsubscribe>syncleus-announce-list+unsubscribe@syncleus.com</unsubscribe>
+            <post>syncleus-announce-list@syncleus.com</post>
+            <archive>https://groups.google.com/a/syncleus.com/forum/#!forum/syncleus-announce-list</archive>
+        </mailingList>
+        <mailingList>
+            <name>Syncleus Development</name>
+            <subscribe>syncleus-dev-list+subscribe@syncleus.com</subscribe>
+            <unsubscribe>syncleus-dev-list+unsubscribe@syncleus.com</unsubscribe>
+            <post>syncleus-dev-list@syncleus.com</post>
+            <archive>https://groups.google.com/a/syncleus.com/forum/#!forum/syncleus-dev-list</archive>
+        </mailingList>
+    </mailingLists>
+
     <distributionManagement>
         <repository>
             <id>ossrh.releases</id>
