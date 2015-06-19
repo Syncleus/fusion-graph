@@ -47,13 +47,6 @@
         </license>
     </licenses>
 
-    <properties>
-        <project.build.encoding>UTF-8</project.build.encoding>
-        <project.build.sourceEncoding>${project.build.encoding}</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>${project.build.encoding}</project.reporting.outputEncoding>
-        <project.build.resourceEncoding>${project.build.encoding}</project.build.resourceEncoding>
-    </properties>
-
     <distributionManagement>
         <repository>
             <id>ossrh.releases</id>
