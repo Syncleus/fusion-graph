@@ -27,15 +27,15 @@
         <version>2-SNAPSHOT</version>
     </parent>
 
-    <groupId>com.syncleus.ferma</groupId>
-    <artifactId>ferma-mesh</artifactId>
-    <version>2.0.0-SNAPSHOT</version>
+    <groupId>com.syncleus.tinkerpop.graphs</groupId>
+    <artifactId>fusion-graph</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>Ferma-mesh</name>
+    <name>Fusion Graph</name>
     <inceptionYear>2015</inceptionYear>
     <description>
-	Ferma-mesh is an extension to Ferma which enables linking between disseperate graphs in order to bridge into a single graph interface.
+        Fuses multiple graphs of any back-end into a single unified virtual graph, allowing inter-graph edges as well.
     </description>
 
     <licenses>
