@@ -192,6 +192,8 @@ public class LinkedMeshGraph implements MeshGraph {
 
     @Override
     public void moveVertex(Vertex vertex, Object subgraphId) {
+        // TODO : Implement this
+        throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
     }
 
     @Override
@@ -233,13 +235,22 @@ public class LinkedMeshGraph implements MeshGraph {
 
     @Override
     public void removeVertex(Vertex vertex) {
-        if (!(vertex instanceof NestedVertex))
-            throw new IllegalArgumentException("vertex does not belong to this graph");
+        if(!(vertex instanceof NestedVertex))
+            throw new IllegalArgumentException("vertex is not a member of any subgraphs");
 
-        //obtain the subgraph which has the vertex to be removed
         final NestedVertex nestedVertex = (NestedVertex) vertex;
-        //this is where the heavy lifting takes place
-        nestedVertex.remove();
+
+        final TransactionalGraph targetGraph = cachedSubgraphs.get(nestedVertex.getParentId());
+
+        //remove the vertex from the subgraph
+        pendingTransactions.add(targetGraph);
+        nestedVertex.getDelegate().remove();
+
+        //remove any mesh edges which link to this vertex from outside the subgraph
+        final Object subgraphVertexId = nestedVertex.getId().getSubgraphVertexId();
+        pendingTransactions.add(metagraph);
+        metagraph.v(nestedVertex.getParentId()).inE("link").has("outId", subgraphVertexId).removeAll();
+        metagraph.v(nestedVertex.getParentId()).outE("link").has("inId", subgraphVertexId).removeAll();
     }
 
     @Override
@@ -279,38 +290,89 @@ public class LinkedMeshGraph implements MeshGraph {
     }
 
     @Override
-    public Edge addEdge(Object id, Vertex outVertex, Vertex inVertex, String label) {
-        return null;
+    public Edge addEdge(final Object id, final Vertex outVertex, final Vertex inVertex, final String label) {
+        if ((id != null) && !(id instanceof MeshId))
+            throw new IllegalArgumentException("id must either be null or a MeshId");
+        if (!(outVertex instanceof NestedVertex))
+            throw new IllegalArgumentException("outVertex is not a vertex from any of the subgraphs");
+        if (!(inVertex instanceof NestedVertex))
+            throw new IllegalArgumentException("inVertex is not a vertex from any of the subgraphs");
+
+        final MeshId meshId = (MeshId) id;
+        final NestedVertex nestedOutVertex = (NestedVertex) outVertex;
+        final NestedVertex nestedInVertex = (NestedVertex) inVertex;
+        final Object subgraphId;
+        final Object subgraphEdgeId;
+        if (meshId == null)
+        {
+            subgraphId = null;
+            subgraphEdgeId = null;
+        }
+        else {
+            subgraphId = meshId.getSubgraphId();
+            subgraphEdgeId = meshId.getSubgraphVertexId();
+        }
+
+        //if both vertexes belong to the same subgraph than it is easy, just create a edge in that subgraph
+        if(nestedOutVertex.getId().getSubgraphId().equals(nestedInVertex.getId().getSubgraphId())) {
+            final Object writeGraphId = nestedOutVertex.getId().getSubgraphId();
+            if( subgraphId != null && !subgraphId.equals(writeGraphId))
+                throw new IllegalArgumentException("meshId was not null but the subgraphId did not match that of the vertex arguments");
+            final TransactionalGraph subgraph = cachedSubgraphs.get(writeGraphId);
+            this.pendingTransactions.add(subgraph);
+            return new NestedEdge(subgraph.addEdge(subgraphEdgeId, nestedOutVertex.getDelegate(), nestedInVertex.getDelegate(), label), writeGraphId);
+        }
+        //we need to create a cross-graph edge
+        else {
+            if( subgraphId != null )
+                throw new IllegalArgumentException("vertexs span subgraphs but id has a non null subgraphId");
+            final Object inGraphId = nestedInVertex.getId().getSubgraphId();
+            final Object outGraphId = nestedOutVertex.getId().getSubgraphId();
+
+            final Vertex inGraphVertex = metagraph.getVertex(inGraphId);
+            final Vertex outGraphVertex = metagraph.getVertex(outGraphId);
+            final Edge subedge = metagraph.addEdge(subgraphEdgeId, outGraphVertex, inGraphVertex, "link");
+            subedge.setProperty("sublabel", label);
+
+            // TODO : Finish implementing this, we still need to cast this into a LinkedEdge!
+            throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
+        }
     }
 
     @Override
     public Edge getEdge(Object id) {
-        return null;
+        // TODO : Implement this
+        throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
     }
 
     @Override
     public void removeEdge(Edge edge) {
-
+        // TODO : Implement this
+        throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
     }
 
     @Override
     public Iterable<Edge> getEdges() {
-        return null;
+        // TODO : Implement this
+        throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
     }
 
     @Override
     public Iterable<Edge> getEdges(String key, Object value) {
-        return null;
+        // TODO : Implement this
+        throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
     }
 
     @Override
     public GraphQuery query() {
-        return null;
+        // TODO : Implement this
+        throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
     }
 
     @Override
     public void shutdown() {
-
+        // TODO : Implement this
+        throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
     }
 
     @Override
@@ -337,6 +399,8 @@ public class LinkedMeshGraph implements MeshGraph {
 
     @Override
     public void resync() {
+        // TODO : Implement this
+        throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
     }
 
     @Override
@@ -466,47 +530,6 @@ public class LinkedMeshGraph implements MeshGraph {
     }
 
     /**
-     * An iterator which encapsulates the iterators provided by each of the subgraphs and unifies them into what appears
-     * to the enduser to be a single iterator.
-     */
-    private static class SubgraphVertexIterator implements Iterator<Vertex> {
-        private NestedVertexIterator currentIterator = null;
-        final Set<NestedVertexIterator> subvertexIterators;
-
-        public SubgraphVertexIterator(Set<NestedVertexIterator> subvertexIterators) {
-            this.subvertexIterators = subvertexIterators;
-        }
-
-        @Override
-        public boolean hasNext() {
-            // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
-            while (true) {
-                if (currentIterator != null) {
-                    if (currentIterator.hasNext())
-                        return true;
-                    else if (subvertexIterators.isEmpty())
-                        return false;
-                }
-
-                currentIterator = subvertexIterators.iterator().next();
-                subvertexIterators.remove(currentIterator);
-            }
-        }
-
-        @Override
-        public Vertex next() {
-            // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
-            while (true) {
-                if ((currentIterator != null) && (currentIterator.hasNext() || subvertexIterators.isEmpty()))
-                    return currentIterator.next();
-
-                currentIterator = subvertexIterators.iterator().next();
-                subvertexIterators.remove(currentIterator);
-            }
-        }
-    }
-
-    /**
      * A type of Element which encapsulates the element from a subgraph. This is the type of element returned to the user
      * when traversing this graph.
      *
@@ -603,6 +626,142 @@ public class LinkedMeshGraph implements MeshGraph {
     }
 
     /**
+     * An edge representing a link across subgraphs
+     */
+    private class LinkingEdge extends NestedElement<Edge> implements Edge {
+        public LinkingEdge(final Edge delegate, final Object parentId) {
+            super(parentId, delegate);
+        }
+
+        private String encodeKey(final String key) {
+            //since we use a key called sublabel we want to preface any label with that name with a underscore,
+            //similarly any variation having some number of prefixed underscores should have one underscore added.
+            if(key.matches("[_]*sublabel"))
+                return "_" + key;
+            else
+                return key;
+        }
+
+        private String decodeKey(final String key ) {
+            //any keys encoded with a suffix of sublabel and underscores as a prefix needs translating
+            if(key.matches("[_]*sublabel")) {
+                //we want to hide the sublabel itself, since this is already the label of the edge.
+                if( key.length() == 8)
+                    return null;
+
+                //the other labels we want to drop one of the prefixed underscores
+                return key.replaceFirst("_", "");
+            }
+            //all the normal keys that dont need translating
+            else
+                return key;
+        }
+
+        @Override
+        public <T> T getProperty(String key) {
+            return super.getProperty(this.encodeKey(key));
+        }
+
+        @Override
+        public Set<String> getPropertyKeys() {
+            final Set<String> translatedKeys = new HashSet<>();
+            for(final String key : super.getPropertyKeys()) {
+                final String decodedKey = this.decodeKey(key);
+                if(decodedKey == null)
+                    continue;
+                translatedKeys.add(decodedKey);
+            }
+            return Collections.unmodifiableSet(translatedKeys);
+        }
+
+        @Override
+        public void setProperty(String key, Object value) {
+            super.setProperty(this.encodeKey(key), value);
+        }
+
+        @Override
+        public <T> T removeProperty(String key) {
+            return super.removeProperty(this.encodeKey(key));
+        }
+
+        /**
+         * Return the tail/out or head/in vertex.
+         *
+         * @param direction whether to return the tail/out or head/in vertex
+         * @return the tail/out or head/in vertex
+         * @throws IllegalArgumentException is thrown if a direction of both is provided
+         */
+        @Override
+        public Vertex getVertex(Direction direction) throws IllegalArgumentException {
+            // TODO : Implement this
+            throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
+        }
+
+        /**
+         * Return the label associated with the edge.
+         *
+         * @return the edge label
+         */
+        @Override
+        public String getLabel() {
+            // TODO : Implement this
+            throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
+        }
+
+        /**
+         * Remove the element from the graph.
+         */
+        @Override
+        public void remove() {
+            // TODO : Implement this
+            throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
+        }
+    }
+
+    /**
+     * A type of Edge which encapsulates the edge from a subgraph. This is the type of vertex returned to the user
+     * when traversing this graph.
+     */
+    private class NestedEdge extends NestedElement<Edge> implements Edge {
+        public NestedEdge(final Edge delegate, final Object parentId) {
+            super(parentId, delegate);
+        }
+
+        /**
+         * Return the tail/out or head/in vertex.
+         *
+         * @param direction whether to return the tail/out or head/in vertex
+         * @return the tail/out or head/in vertex
+         * @throws IllegalArgumentException is thrown if a direction of both is provided
+         */
+        @Override
+        public Vertex getVertex(Direction direction) throws IllegalArgumentException {
+            // TODO : Implement this
+            throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
+        }
+
+        /**
+         * Return the label associated with the edge.
+         *
+         * @return the edge label
+         */
+        @Override
+        public String getLabel() {
+            // TODO : Implement this
+            throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
+        }
+
+        /**
+         * Remove the element from the graph.
+         */
+        @Override
+        public void remove() {
+            // TODO : Implement this
+            throw new UnsupportedOperationException("This method hasnt been implemented yet, comming soon!");
+        }
+    }
+
+    /**
      * A type of Vertex which encapsulates the vertex from a subgraph. This is the type of vertex returned to the user
      * when traversing this graph.
      */
@@ -613,17 +772,7 @@ public class LinkedMeshGraph implements MeshGraph {
 
         @Override
         public void remove() {
-            final TransactionalGraph targetGraph = cachedSubgraphs.get(this.getParentId());
-
-            //remove the vertex from the subgraph
-            pendingTransactions.add(targetGraph);
-            this.getDelegate().remove();
-
-            //remove any mesh edges which link to this vertex from outside the subgraph
-            final Object subgraphVertexId = this.getId().getSubgraphVertexId();
-            pendingTransactions.add(metagraph);
-            metagraph.v().has("id", this.getParentId()).inE("link").has("outId", subgraphVertexId).removeAll();
-            metagraph.v().has("id", this.getParentId()).outE("link").has("inId", subgraphVertexId).removeAll();
+            LinkedMeshGraph.this.removeVertex(this);
         }
 
         @Override
@@ -645,25 +794,8 @@ public class LinkedMeshGraph implements MeshGraph {
 
         @Override
         public Edge addEdge(String label, Vertex inVertex) {
+            // TODO : This should be a NestedEdge
             return this.getDelegate().addEdge(label, inVertex);
-        }
-    }
-
-    /**
-     * An iterable object which encapsulates the iterable from a subgraph insuring it returns the proper element type
-     */
-    private class NestedVertexIterable implements Iterable<Vertex> {
-        final Object parentId;
-        final Iterable<Vertex> delegate;
-
-        public NestedVertexIterable(Iterable<Vertex> delegate, Object parentId) {
-            this.parentId = parentId;
-            this.delegate = delegate;
-        }
-
-        @Override
-        public Iterator<Vertex> iterator() {
-            return new NestedVertexIterator(this.delegate.iterator(), this.parentId);
         }
     }
 
@@ -687,6 +819,65 @@ public class LinkedMeshGraph implements MeshGraph {
         @Override
         public Vertex next() {
             return new NestedVertex(this.delegate.next(), this.parentId);
+        }
+    }
+
+    /**
+     * An iterable object which encapsulates the iterable from a subgraph insuring it returns the proper element type
+     */
+    private class NestedVertexIterable implements Iterable<Vertex> {
+        final Object parentId;
+        final Iterable<Vertex> delegate;
+
+        public NestedVertexIterable(Iterable<Vertex> delegate, Object parentId) {
+            this.parentId = parentId;
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Iterator<Vertex> iterator() {
+            return new NestedVertexIterator(this.delegate.iterator(), this.parentId);
+        }
+    }
+
+    /**
+     * An iterator which encapsulates the iterators provided by each of the subgraphs and unifies them into what appears
+     * to the enduser to be a single iterator.
+     */
+    private static class SubgraphVertexIterator implements Iterator<Vertex> {
+        private NestedVertexIterator currentIterator = null;
+        final Set<NestedVertexIterator> subvertexIterators;
+
+        public SubgraphVertexIterator(Set<NestedVertexIterator> subvertexIterators) {
+            this.subvertexIterators = subvertexIterators;
+        }
+
+        @Override
+        public boolean hasNext() {
+            // TODO : lets try to get rrid of this while(true) it may be prone to infinite loops
+            while (true) {
+                if (currentIterator != null) {
+                    if (currentIterator.hasNext())
+                        return true;
+                    else if (subvertexIterators.isEmpty())
+                        return false;
+                }
+
+                currentIterator = subvertexIterators.iterator().next();
+                subvertexIterators.remove(currentIterator);
+            }
+        }
+
+        @Override
+        public Vertex next() {
+            // TODO : lets try to get rid of this while(true) it may be prone to infinite loops
+            while (true) {
+                if ((currentIterator != null) && (currentIterator.hasNext() || subvertexIterators.isEmpty()))
+                    return currentIterator.next();
+
+                currentIterator = subvertexIterators.iterator().next();
+                subvertexIterators.remove(currentIterator);
+            }
         }
     }
 
